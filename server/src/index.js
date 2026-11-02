@@ -39,7 +39,7 @@ app.post("/api/admin/login", adminLoginRateLimit, (request, response) => {
 app.get("/api/admin/businesses", requireAdmin, async (request, response) => {
   try {
     const [businesses, activity] = await Promise.all([
-      Business.find().select("name email phone logoUrl accountStatus inactiveSince deletionPending subscriptionStatus subscriptionExpiresAt createdAt").sort({ createdAt: -1 }).lean(),
+      Business.find().select("name email phone logoUrl googleReviewUrl accountStatus inactiveSince deletionPending subscriptionStatus subscriptionExpiresAt createdAt").sort({ createdAt: -1 }).lean(),
       Order.aggregate([
         {
           $group: {
@@ -150,6 +150,40 @@ app.patch("/api/admin/businesses/:id/account-status", requireAdmin, async (reque
     if (error.name === "CastError") return response.status(400).json({ error: "Business account not found." });
     console.error("Admin account status update failed:", error.message);
     response.status(500).json({ error: "Could not update the account status." });
+  }
+});
+
+app.patch("/api/admin/businesses/:id/review-link", requireAdmin, async (request, response) => {
+  const { googleReviewUrl } = request.body;
+  if (typeof googleReviewUrl !== "string" || googleReviewUrl.length > 500) {
+    return response.status(400).json({ error: "Enter a valid Google review link." });
+  }
+  const normalizedUrl = googleReviewUrl.trim();
+  if (normalizedUrl) {
+    try {
+      const url = new URL(normalizedUrl);
+      const hostname = url.hostname.toLowerCase();
+      const isGoogleHost = hostname === "g.page"
+        || hostname === "maps.app.goo.gl"
+        || hostname === "google.com"
+        || hostname.endsWith(".google.com");
+      if (url.protocol !== "https:" || !isGoogleHost || url.username || url.password) {
+        throw new Error("Invalid Google review URL.");
+      }
+    } catch {
+      return response.status(400).json({ error: "Enter a valid Google review link." });
+    }
+  }
+  try {
+    const business = await Business.findOne({ _id: request.params.id, deletionPending: { $ne: true } });
+    if (!business) return response.status(404).json({ error: "Business account not found." });
+    business.googleReviewUrl = normalizedUrl;
+    await business.save();
+    response.json({ id: business.id, googleReviewUrl: business.googleReviewUrl });
+  } catch (error) {
+    if (error.name === "CastError") return response.status(400).json({ error: "Business account not found." });
+    console.error("Admin Google review link update failed:", error.message);
+    response.status(500).json({ error: "Could not update the Google review link." });
   }
 });
 
@@ -544,7 +578,7 @@ app.post("/api/auth/google", async (request, response) => {
 });
 
 app.get("/api/auth/me", requireAuth, async (request, response) => {
-  const business = await Business.findById(request.business.id).select("name email phone publicCode passwordHash logoUrl accountStatus subscriptionStatus subscriptionExpiresAt");
+  const business = await Business.findById(request.business.id).select("name email phone publicCode passwordHash logoUrl googleReviewUrl accountStatus subscriptionStatus subscriptionExpiresAt");
   if (!business) return response.status(401).json({ error: "Account not found." });
   response.json({
     name: business.name,
@@ -552,6 +586,7 @@ app.get("/api/auth/me", requireAuth, async (request, response) => {
     phone: business.phone || "",
     publicCode: business.publicCode,
     logoUrl: business.logoUrl || "",
+    googleReviewUrl: business.googleReviewUrl || "",
     hasPassword: Boolean(business.passwordHash),
     accountStatus: business.accountStatus || "active",
     subscriptionStatus: business.subscriptionStatus || "inactive",
@@ -645,7 +680,7 @@ app.delete("/api/auth/business/logo", requireAuth, async (request, response) => 
 
 app.patch("/api/auth/business", requireAuth, async (request, response) => {
   const fields = Object.keys(request.body);
-  if (fields.length !== 1 || !["name", "phone"].includes(fields[0])) {
+  if (fields.length !== 1 || !["name", "phone", "googleReviewUrl"].includes(fields[0])) {
     return response.status(400).json({ error: "Could not update the business details." });
   }
 
@@ -659,6 +694,26 @@ app.patch("/api/auth/business", requireAuth, async (request, response) => {
     }
   } else if (field === "phone" && (typeof value !== "string" || !/^\d{8}$/.test(value))) {
     return response.status(400).json({ error: "Enter an 8-digit Tunisian phone number." });
+  } else if (field === "googleReviewUrl") {
+    if (typeof value !== "string" || value.length > 500) {
+      return response.status(400).json({ error: "Enter a valid Google review link." });
+    }
+    normalizedValue = value.trim();
+    if (normalizedValue) {
+      try {
+        const url = new URL(normalizedValue);
+        const hostname = url.hostname.toLowerCase();
+        const isGoogleHost = hostname === "g.page"
+          || hostname === "maps.app.goo.gl"
+          || hostname === "google.com"
+          || hostname.endsWith(".google.com");
+        if (url.protocol !== "https:" || !isGoogleHost || url.username || url.password) {
+          throw new Error("Invalid Google review URL.");
+        }
+      } catch {
+        return response.status(400).json({ error: "Enter a valid Google review link." });
+      }
+    }
   }
 
   if (field === "name" && typeof value !== "string") {
@@ -741,9 +796,9 @@ app.get("/api/public/business", async (request, response) => {
   if (!/^[a-f0-9]{16}$/.test(businessCode)) {
     return response.status(400).json({ error: "This QR code is missing its business identity. Please scan the current counter QR code." });
   }
-  const business = await Business.findOne({ publicCode: businessCode }).select("name logoUrl");
+  const business = await Business.findOne({ publicCode: businessCode }).select("name logoUrl googleReviewUrl");
   if (!business) return response.status(404).json({ error: "Business not found." });
-  response.json({ name: business.name, logoUrl: business.logoUrl || "" });
+  response.json({ name: business.name, logoUrl: business.logoUrl || "", googleReviewUrl: business.googleReviewUrl || "" });
 });
 
 app.get("/api/public/orders/:token", async (request, response) => {

@@ -13,6 +13,7 @@ const businessSchema = new mongoose.Schema({
   passwordHash: { type: String },
   googleId: { type: String, unique: true, sparse: true },
   logoUrl: { type: String, default: "" },
+  googleReviewUrl: { type: String, default: "" },
   accountStatus: { type: String, enum: ["active", "banned"], default: "active" },
   inactiveSince: { type: Date, default: null },
   deletionPending: { type: Boolean, default: false },

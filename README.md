@@ -10,6 +10,8 @@ Taw Ijyk is a queue and order-status app for businesses. Staff manage orders fro
 - Customers scan a business QR code, enter an invoice number, and follow the order status. A customer can optionally enable an audible alert while tracking.
 - Each business has its own order history, settings, QR code, and public customer tracking page.
 - Business owners can edit their business name, phone number, password, and logo.
+- Business owners can optionally add a Google review link; customers see five links to it after their order is marked ready.
+- Admins can view and update or remove each business's Google review link from the business account details.
 - The admin dashboard manages subscriptions and account status, and provides payment and account history.
 - The interface supports dark and light themes.
 
@@ -128,10 +130,10 @@ The client uses URL hashes for staff and admin pages:
 | `/#orders` | Live queue: create orders, extend waiting time, and mark orders ready |
 | `/#dashboard` | Order history |
 | `/#qr` | Business QR code and printable poster |
-| `/#settings` | Business profile, logo, and password |
+| `/#settings` | Business profile, logo, Google review link, and password |
 | `/#admin` | Admin subscriptions, account management, and history |
 
-Customer pages use query parameters rather than a hash. The business QR code opens `/?customer&business=<public-business-code>&shop=<business-name>`. Customers enter an invoice number there to find an order. A direct tracking URL can use `/?customer=<order-token>&business=<public-business-code>`. The customer page does not grant access to the staff dashboard.
+Customer pages use query parameters rather than a hash. The business QR code opens `/?customer&business=<public-business-code>&shop=<business-name>`. Customers enter an invoice number there to find an order. A direct tracking URL can use `/?customer=<order-token>&business=<public-business-code>`. After staff mark an order ready, the customer page shows five stars linking to the business's optional Google review URL. The customer page does not grant access to the staff dashboard.
 
 ## API overview
 
@@ -145,18 +147,19 @@ Business endpoints that need a signed-in business account use the `Authorization
 | `POST` | `/api/auth/login` | Sign in with email and password |
 | `POST` | `/api/auth/google` | Sign up or sign in with a Google credential |
 | `GET` | `/api/auth/me` | Get the signed-in business profile |
-| `PATCH` | `/api/auth/business` | Update business details |
+| `PATCH` | `/api/auth/business` | Update business details or Google review link |
 | `POST` / `DELETE` | `/api/auth/business/logo` | Upload or remove a business logo |
 | `POST` | `/api/auth/password` | Set or change the account password |
 | `GET` | `/api/orders` | List this business's orders |
 | `POST` | `/api/orders` | Create an order (requires active subscription) |
 | `POST` | `/api/orders/:id/extend` | Extend a waiting order (requires active subscription) |
 | `POST` | `/api/orders/:id/ready` | Mark a waiting order ready (requires active subscription) |
-| `GET` | `/api/public/business?business=<code>` | Get public business name and logo |
+| `GET` | `/api/public/business?business=<code>` | Get public business name, logo, and optional Google review link |
 | `GET` | `/api/public/orders?invoice=<number>&business=<code>` | Look up an order by invoice |
 | `GET` | `/api/public/orders/:token?business=<code>` | Get public order status |
 | `POST` | `/api/admin/login` | Admin sign-in |
 | `GET` | `/api/admin/businesses` | List business accounts and activity |
+| `PATCH` | `/api/admin/businesses/:id/review-link` | Update or remove a business's Google review link |
 | `PATCH` | `/api/admin/businesses/:id/subscription` | Activate or update a subscription |
 | `PATCH` | `/api/admin/businesses/:id/account-status` | Ban or unban an account |
 | `DELETE` | `/api/admin/businesses/:id` | Permanently delete a business and its orders |
@@ -166,7 +169,7 @@ Business endpoints that need a signed-in business account use the `Authorization
 
 MongoDB stores three main collections:
 
-- **Business:** profile, email and password/Google identity, verification status, public QR code, account status, and subscription.
+- **Business:** profile, optional Google review link, email and password/Google identity, verification status, public QR code, account status, and subscription.
 - **Order:** invoice, preparation time, queue status, timestamps, business owner, and an unguessable public tracking token.
 - **BusinessEvent:** subscription changes, bans/unbans, and optional payment amounts recorded by the admin.
 

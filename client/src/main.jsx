@@ -91,6 +91,7 @@ const arabicErrors = {
   "Choose a valid subscription expiry date.": "اختر تاريخ انتهاء صحيحاً.",
   "Choose an expiry date in the future.": "اختر تاريخ انتهاء في المستقبل.",
   "Enter a valid subscription duration.": "أدخل مدة اشتراك صحيحة.",
+  "Could not update the Google review link.": "تعذّر تحديث رابط تقييم Google.",
   "Business account not found.": "لم نعثر على حساب النشاط.",
   "Admin sign-in is required.": "يلزم تسجيل الدخول للإدارة.",
   "Admin access is required.": "هذه الصفحة مخصصة للإدارة.",
@@ -105,6 +106,7 @@ const arabicErrors = {
   "Could not update the password.": "تعذّر تحديث كلمة المرور. حاول مجدداً.",
   "Enter a business name between 1 and 100 characters.": "أدخل اسم نشاط يتراوح بين حرف واحد و100 حرف.",
   "Enter an 8-digit Tunisian phone number.": "أدخل رقم هاتف تونسيّاً مكوّناً من 8 أرقام.",
+  "Enter a valid Google review link.": "أدخل رابط تقييم صحيحاً من Google.",
   "Could not update the business details.": "تعذّر تحديث بيانات النشاط. حاول مجدداً.",
   "Cloudinary logo uploads are not configured.": "رفع الشعارات غير مهيأ حالياً. يرجى التواصل مع الدعم.",
   "Logo file must be 5 MB or smaller.": "يجب ألا يتجاوز حجم الصورة 5 ميغابايت.",
@@ -359,6 +361,71 @@ function EditableAccountField({ field, label, value, onSaved }) {
         </div>
       )}
       {!editing && <p className={`form-message${error ? " has-error" : message ? " success" : ""}`}>{error || message}</p>}
+    </div>
+  );
+}
+
+function BusinessReviewLinkField({ value, onSaved }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value || "");
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+
+  const edit = () => {
+    setDraft(value || "");
+    setMessage("");
+    setError("");
+    setEditing(true);
+  };
+  const save = async (event) => {
+    event.preventDefault();
+    setMessage("");
+    setError("");
+    try {
+      const updated = await api("/api/auth/business", {
+        method: "PATCH",
+        body: JSON.stringify({ googleReviewUrl: draft }),
+      });
+      onSaved(updated);
+      setDraft(updated.googleReviewUrl || "");
+      setEditing(false);
+      setMessage("تم حفظ رابط تقييم Google.");
+    } catch (saveError) {
+      setError(localizeError(saveError.message));
+    }
+  };
+
+  return (
+    <div className="account-detail">
+      <span>رابط تقييم Google</span>
+      {editing ? (
+        <form className="business-name-form" onSubmit={save}>
+          <div className="input-wrap">
+            <input
+              aria-label="رابط تقييم Google"
+              type="url"
+              dir="ltr"
+              maxLength={500}
+              placeholder="https://g.page/r/.../review"
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+            />
+          </div>
+          <small>اتركه فارغاً لإخفاء النجوم من صفحة متابعة الطلب.</small>
+          <div className="business-name-actions">
+            <button className="primary-button" type="submit">حفظ</button>
+            <button className="secondary-button" type="button" onClick={() => { setEditing(false); setError(""); }}>إلغاء</button>
+          </div>
+          <p className={`form-message${error ? " has-error" : ""}`} role={error ? "alert" : undefined}>{error}</p>
+        </form>
+      ) : (
+        <div className="account-value">
+          <strong dir="ltr">{value || "—"}</strong>
+          <button className="edit-button" type="button" onClick={edit}>تعديل</button>
+        </div>
+      )}
+      {!editing && <p className={`form-message${error ? " has-error" : message ? " success" : ""}`}>{error || message}</p>}
+      <small>تظهر النجوم للزبون بعد أن يعلّم المحاسب الطلب كجاهز.</small>
     </div>
   );
 }
@@ -1063,6 +1130,30 @@ function Admin({ theme, onToggleTheme }) {
     }
   };
 
+  const saveReviewLink = async (account, googleReviewUrl) => {
+    setSavingId(account._id);
+    setError("");
+    setMessage("");
+    try {
+      const updated = await adminApi(`/api/admin/businesses/${account._id}/review-link`, {
+        method: "PATCH",
+        body: JSON.stringify({ googleReviewUrl }),
+      });
+      setBusinesses((current) => current.map((business) => (
+        business._id === account._id ? { ...business, googleReviewUrl: updated.googleReviewUrl } : business
+      )));
+      setMessage(`Google review link updated for ${account.name}.`);
+    } catch (saveError) {
+      if (saveError.status === 401 || saveError.status === 403) {
+        removeStoredValue(sessionStorage, "taw_ijyk_admin_token", "dorak_admin_token");
+        setSessionToken("");
+      }
+      setError(saveError.message);
+    } finally {
+      setSavingId("");
+    }
+  };
+
   const updateAccountStatus = async (account, status) => {
     const action = status === "banned" ? "ban" : "unban";
     if (!window.confirm(`Are you sure you want to ${action} ${account.name}'s account?`)) return;
@@ -1304,6 +1395,12 @@ function Admin({ theme, onToggleTheme }) {
                         <label className="admin-payment-amount"><span>Amount received (TND, optional)</span><input type="number" min="0" step="0.001" placeholder="Enter only if paid" value={paymentAmounts[account._id] ?? ""} onChange={(event) => setPaymentAmounts((current) => ({ ...current, [account._id]: event.target.value }))} /></label>
                         <button className="primary-button admin-save-subscription" type="button" disabled={banned || savingId === account._id || (active && !expiryPreview)} onClick={() => saveSubscription(account)}>{savingId === account._id ? "Saving…" : "Save subscription"}</button>
                       </div>
+                      <AdminReviewLinkEditor
+                        key={account._id}
+                        value={account.googleReviewUrl || ""}
+                        saving={savingId === account._id}
+                        onSave={(googleReviewUrl) => saveReviewLink(account, googleReviewUrl)}
+                      />
                       <div className="admin-danger-zone">
                         <div><strong>Danger zone</strong><small>Account removal is permanent.</small></div>
                         <div className="admin-danger-actions">
@@ -1361,6 +1458,35 @@ function Admin({ theme, onToggleTheme }) {
         </main>
       </div>
     </div>
+  );
+}
+
+function AdminReviewLinkEditor({ value, saving, onSave }) {
+  const [draft, setDraft] = useState(value);
+  useEffect(() => setDraft(value), [value]);
+
+  return (
+    <form className="admin-detail-section admin-review-link-editor" onSubmit={(event) => {
+      event.preventDefault();
+      onSave(draft);
+    }}>
+      <h3>Google review link</h3>
+      <label className="admin-payment-amount">
+        <span>Customer review URL</span>
+        <input
+          type="url"
+          dir="ltr"
+          maxLength={500}
+          placeholder="https://g.page/r/.../review"
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+        />
+      </label>
+      <small className="admin-expiry-preview">Leave blank to remove the link from the customer page.</small>
+      <button className="primary-button admin-save-subscription" type="submit" disabled={saving}>
+        {saving ? "Saving…" : "Save review link"}
+      </button>
+    </form>
   );
 }
 
@@ -1945,6 +2071,7 @@ function Dashboard({ page, theme, onToggleTheme }) {
               <EditableAccountField field="name" label="اسم النشاط التجاري" value={business?.name} onSaved={updateBusiness} />
               <BusinessLogoField logoUrl={business?.logoUrl || ""} onSaved={updateBusiness} />
               <EditableAccountField field="phone" label="رقم الهاتف" value={business?.phone} onSaved={updateBusiness} />
+              <BusinessReviewLinkField value={business?.googleReviewUrl || ""} onSaved={updateBusiness} />
               <div className="account-detail"><span>البريد الإلكتروني</span><strong dir="ltr">{business?.email || "—"}</strong><small>للتغيير، تواصل معنا.</small></div>
             </div>
           </div>
@@ -2008,6 +2135,7 @@ function Customer({ token: publicToken, theme, onToggleTheme }) {
     : "");
   const [businessName, setBusinessName] = useState(shopNameFromQr);
   const [businessLogoUrl, setBusinessLogoUrl] = useState("");
+  const [businessReviewUrl, setBusinessReviewUrl] = useState("");
   const [businessError, setBusinessError] = useState("");
   const [error, setError] = useState("");
   const [lookupLoading, setLookupLoading] = useState(false);
@@ -2048,6 +2176,7 @@ function Customer({ token: publicToken, theme, onToggleTheme }) {
         if (!response.ok) throw new Error(data.error || arabicErrors["Business not found."]);
         if (!shopNameFromQr) setBusinessName(data.name);
         setBusinessLogoUrl(data.logoUrl || "");
+        setBusinessReviewUrl(data.googleReviewUrl || "");
       })
       .catch(() => {
         if (!shopNameFromQr) setBusinessError("اسم المحل غير متوفر. حدّث رمز QR من لوحة التحكم.");
@@ -2291,6 +2420,20 @@ function Customer({ token: publicToken, theme, onToggleTheme }) {
                 <li className="is-complete"><span>✓</span><strong>قيد التحضير</strong></li>
                 <li className="is-complete"><span>✓</span><strong>جاهز</strong></li>
               </ol>
+              {businessReviewUrl && <div className="customer-review-invitation">
+                <p>يسعدنا أن تشاركنا رأيك على Google</p>
+                <div className="customer-review-stars" dir="ltr" aria-label="تقييم النشاط على Google">
+                  {Array.from({ length: 5 }, (_, index) => (
+                    <a
+                      key={index}
+                      href={businessReviewUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      aria-label="افتح صفحة تقييم Google"
+                    >★</a>
+                  ))}
+                </div>
+              </div>}
               {error && <p className="not-found" role="status">{error}</p>}
               <button className="secondary-button" onClick={() => setOrder(null)}>تابع طلباً آخر <span>←</span></button>
             </div>

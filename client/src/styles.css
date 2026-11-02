@@ -1428,6 +1428,12 @@ html[data-theme="light"] .auth-layout .auth-card {
 .customer-alert-message > span:nth-child(2) { min-width: 0; flex: 1; }
 .customer-alert-message .customer-sound-stop { min-height: 32px; display: inline-flex; flex: none; align-items: center; justify-content: center; margin-inline-start: auto; padding: 5px 10px; border: 1px solid rgba(255, 130, 130, .3); border-radius: 9px; color: #ffd1d1; background: rgba(255, 100, 100, .12); font: inherit; font-size: 10px; font-weight: 700; cursor: pointer; transition: background .18s ease, border-color .18s ease; }
 .customer-alert-message .customer-sound-stop:hover { border-color: rgba(255, 150, 150, .58); background: rgba(255, 100, 100, .2); }
+.customer-review-invitation { margin: 20px auto 4px; padding: 14px; border: 1px solid rgba(255, 201, 111, .24); border-radius: 14px; background: rgba(255, 201, 111, .055); text-align: center; }
+.customer-review-invitation p { margin: 0 0 5px; color: var(--ink); font-size: 13px; font-weight: 650; }
+.customer-review-stars { display: flex; justify-content: center; gap: 7px; }
+.customer-review-stars a { padding: 1px 3px; color: #ffc96f; font-size: 34px; line-height: 1.2; text-decoration: none; transition: transform .16s ease, color .16s ease; }
+.customer-review-stars a:hover { transform: translateY(-2px) scale(1.08); color: #ffdb91; }
+.customer-review-stars a:focus-visible { border-radius: 5px; outline: 2px solid currentColor; outline-offset: 2px; }
 html[data-theme="light"] .customer-alert-message.is-ready { border-color: rgba(24, 142, 98, .28); color: #15583f; background: linear-gradient(135deg, rgba(91, 205, 151, .2), rgba(91, 205, 151, .1)); }
 .customer-order-progress { position: relative; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; margin: 23px 0 4px; padding: 0; list-style: none; direction: rtl; }
 .customer-order-progress::before { height: 2px; position: absolute; top: 13px; inset-inline: 16.66%; content: ""; background: linear-gradient(to left, #64e1b5 0 50%, rgba(166, 168, 223, .24) 50%); }
@@ -2148,6 +2154,8 @@ html[data-theme="light"] .customer-invoice-hint { color: #777184; }
 .admin-detail-metrics small { color: #aaa7c8; font-size: 12px; }
 .admin-detail-metrics strong { color: #f0edfc; font-size: 14px; font-weight: 700; }
 .admin-detail-section { display: grid; gap: 11px; padding: 17px 0; border-bottom: 1px solid rgba(167, 146, 230, .14); }
+.admin-review-link-editor .admin-payment-amount { margin: 0; }
+.admin-review-link-editor .admin-save-subscription { margin: 0; }
 .admin-detail-section h3 { margin: 0; color: #f1eefc; font-size: 16px; }
 .admin-detail-section .admin-control-label { margin: 1px 0 -5px; color: #aaa7c8; font-size: 12px; }
 .admin-detail-section .admin-status-switch { gap: 5px; padding: 4px; border-radius: 11px; background: rgba(7, 7, 22, .45); }
