@@ -710,8 +710,22 @@ function Auth({ signup = false, theme, onToggleTheme }) {
         client_id: googleClientId,
         callback: async ({ credential }) => {
           if (signup) {
-            setGoogleSignupCredential(credential);
             setError("");
+            setGoogleLoading(true);
+            try {
+              await api("/api/auth/google", {
+                method: "POST",
+                body: JSON.stringify({
+                  credential,
+                  mode: "signup-check",
+                }),
+              });
+              setGoogleSignupCredential(credential);
+            } catch (googleError) {
+              setError(localizeError(googleError.message));
+            } finally {
+              setGoogleLoading(false);
+            }
             return;
           }
           setError("");
@@ -900,7 +914,7 @@ function Auth({ signup = false, theme, onToggleTheme }) {
             {googleClientId && <>
               <div className="auth-divider"><span>أو</span></div>
               <div className={`google-signin${googleLoading ? " is-loading" : ""}`} ref={googleButtonRef} />
-              {googleLoading && <p className="google-status">جارٍ تسجيل الدخول عبر Google...</p>}
+              {googleLoading && <p className="google-status">{signup ? "جارٍ التحقق من الحساب عبر Google..." : "جارٍ تسجيل الدخول عبر Google..."}</p>}
             </>}
           </>}
           {!verificationEmail && <p className="auth-switch"><a href={signup ? "#login" : "#signup"}>{signup ? "لديك حساب؟ سجّل الدخول" : "إنشاء حساب نشاط تجاري"}</a></p>}

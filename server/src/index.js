@@ -517,7 +517,7 @@ app.post("/api/auth/google", async (request, response) => {
   const credential = String(request.body.credential || "");
   const mode = request.body.mode;
   const name = String(request.body.name || "").trim();
-  if (!credential || !["login", "signup"].includes(mode) || (mode === "signup" && !name)) {
+  if (!credential || !["login", "signup", "signup-check"].includes(mode) || (mode === "signup" && !name)) {
     return response.status(400).json({ error: "Complete the required account details and try again." });
   }
 
@@ -537,24 +537,41 @@ app.post("/api/auth/google", async (request, response) => {
   }
 
   try {
-    let business = await Business.findOne({ googleId: payload.sub });
-    if (!business) {
-      business = await Business.findOne({ email: payload.email.toLowerCase() });
-      if (business?.googleId && business.googleId !== payload.sub) {
-        return response.status(409).json({ error: "This email is already linked to a different Google account." });
+    const existingBusiness = async () => Business.exists({
+      $or: [
+        { email: payload.email.toLowerCase() },
+        { googleId: payload.sub },
+      ],
+    });
+    if (mode === "signup-check") {
+      if (await existingBusiness()) {
+        return response.status(409).json({ error: "An account with that email already exists. Please sign in instead." });
       }
-      if (!business && mode === "login") {
-        return response.status(404).json({ error: "No account exists for this Google email. Create an account first." });
+      return response.json({ available: true });
+    }
+
+    let business;
+    if (mode === "signup") {
+      if (await existingBusiness()) {
+        return response.status(409).json({ error: "An account with that email already exists. Please sign in instead." });
       }
+      business = new Business({
+        name,
+        email: payload.email.toLowerCase(),
+        publicCode: crypto.randomBytes(8).toString("hex"),
+        googleId: payload.sub,
+        inactiveSince: new Date(),
+      });
+    } else {
+      business = await Business.findOne({ googleId: payload.sub });
       if (!business) {
-        business = new Business({
-          name,
-          email: payload.email.toLowerCase(),
-          publicCode: crypto.randomBytes(8).toString("hex"),
-          googleId: payload.sub,
-          inactiveSince: new Date(),
-        });
-      } else {
+        business = await Business.findOne({ email: payload.email.toLowerCase() });
+        if (business?.googleId && business.googleId !== payload.sub) {
+          return response.status(409).json({ error: "This email is already linked to a different Google account." });
+        }
+        if (!business) {
+          return response.status(404).json({ error: "No account exists for this Google email. Create an account first." });
+        }
         business.googleId = payload.sub;
       }
     }
