@@ -1,5 +1,6 @@
 require("dotenv").config();
 const crypto = require("node:crypto");
+const path = require("node:path");
 const express = require("express");
 const cors = require("cors");
 const bcrypt = require("bcryptjs");
@@ -817,13 +818,21 @@ async function start() {
   server.on("error", (error) => {
     if (error.code === "EADDRINUSE") {
       console.error(`Port ${port} is already in use. Taw Ijyk may already be running there.`);
-      console.error(`Use http://localhost:5173 and do not start a second API process.`);
+      console.error("Do not start a second API process on the same port.");
     } else {
       console.error("Taw Ijyk API server error:", error.message);
     }
     process.exit(1);
   });
 }
+
+const clientDist = path.resolve(__dirname, "../../dist");
+app.use(express.static(clientDist));
+app.get("*", (request, response, next) => {
+  if (request.path.startsWith("/api/")) return next();
+  response.sendFile(path.join(clientDist, "index.html"));
+});
+
 start().catch((error) => {
   console.error("Could not start Taw Ijyk API:", error.message);
   console.error("Make sure MongoDB is running and MONGO_URI in .env points to the correct database.");
