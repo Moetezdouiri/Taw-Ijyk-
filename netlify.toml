@@ -1,7 +1,0 @@
-[build.environment]
-  # These values are not secrets: they are public config (ports, hosts, local dev
-  # origin) that also appear in README developer examples, plus the Google OAuth
-  # client ID, which is public by design and intentionally embedded in the Vite
-  # client bundle. Real secrets (passwords, API keys/secrets, MONGO_URI, JWT_SECRET)
-  # remain protected by secrets scanning.
-  SECRETS_SCAN_OMIT_KEYS = "CLIENT_ORIGIN,PORT,SMTP_HOST,SMTP_PORT,VITE_GOOGLE_CLIENT_ID,GOOGLE_CLIENT_ID"
